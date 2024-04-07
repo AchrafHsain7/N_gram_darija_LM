@@ -1,5 +1,6 @@
 from collections import defaultdict
 import csv
+import numpy as np 
 
 
 class DarijaBPETokenizer:
@@ -34,7 +35,7 @@ class DarijaBPETokenizer:
         try:
             self.frequent_pattern =  max(patterns, key=patterns.get)
         except:
-            print(">>>Word Tokenization Reached")
+            print(">>>MAX Word Tokenization Reached")
             return 0
 
         
@@ -75,7 +76,6 @@ class DarijaBPETokenizer:
                 self.vocab.add(w)
             
 
-
     def bp_encode(self, max_vocab=1000, debug=False):
             k = max_vocab - len(self.vocab)
             self.create_vocab()
@@ -87,13 +87,109 @@ class DarijaBPETokenizer:
             self.get_unique_tkn()
 
 
+    def get_vocab(self):
+        return list(self.vocab)
+
+
     def save_vocab(self):
         self.get_unique_tkn()
-        with open("vocab.csv", "w", encoding="utf-8") as f:
+        with open("vocab.txt", "w", encoding="utf-8") as f:
             f.writelines([x + "\n" for x in self.vocab])
 
-    def load_vocab(self):
-        pass
+    def load_vocab(self, f_path):
+        self.vocab = set()
+        with open(f_path, "r", encoding="utf-8") as f:
+            tkn = f.readline()
+            tkn.replace("\n", "")
+            self.vocab.add(tkn)
+
+
+
+
+
+
+
+class NgramModel:
+    def __init__(self, tokenizer, n_gram=2):
+        self.corpus = self.process_corpus(tokenizer.train_vocab)
+        self.vocab = self.encode_vocab(tokenizer.get_vocab()) 
+        self.vocab_len = len(self.vocab)
+        self.n_gram = n_gram
+        self.get_inverse_vocab()
+
+    def process_corpus(self, corpus):
+        corpus = [x.split() for x in corpus]
+        return corpus
+    
+    def load_vocab(self, f_path):
+        self.vocab = set()
+        with open(f_path, "r", encoding="utf-8") as f:
+            tkns = f.readlines()
+            for tkn in tkns:
+                tkn = tkn.replace("\n", "")
+                self.vocab.add(tkn)
+
+        self.vocab_len = len(self.vocab)
+        self.vocab = self.encode_vocab(list(self.vocab))
+        self.get_inverse_vocab()
+
+    
+    def encode_vocab(self, vocab):
+        encoded_vocab = defaultdict(int)
+        for i in range(len(vocab)):
+            encoded_vocab[vocab[i]] += i
+        
+        return encoded_vocab
+    
+    def get_inverse_vocab(self):
+        self.inverse_vocab = {}
+        for key, val in self.vocab.items():
+            self.inverse_vocab[val] = key
+
+    
+    def initialize_model(self):
+        #rows: are w1
+        #columns: are w2
+        #model: probability of w2 given we have w1
+        self.model = np.ones((self.vocab_len, self.vocab_len))
+
+    def normalize_model(self):
+        sum_prob = np.sum(self.model)
+        self.model = self.model / sum_prob
+
+    def train_model(self):
+        self.initialize_model()
+        for sent in self.corpus:
+            for i in range(len(sent)-1):
+                # getting w2 given we have w1
+                w1 = sent[i]
+                w2 = sent[i+1]
+
+                idx1 = self.vocab[w1]
+                idx2 = self.vocab[w2]
+
+                #increase probability of w2 after w1
+                self.model[idx1][idx2] += 1
+
+        self.normalize_model()
+
+    def generate_text(self, start="<SOS>"):
+        response = start 
+        current = start
+        if start in self.vocab.keys():
+            while "<EOS" not in current:
+                current_idx = self.vocab[current]
+                next_idx = np.argmax(self.model[current_idx])
+                next_tkn = self.inverse_vocab[next_idx]
+                response += next_tkn
+                current = next_tkn
+            print(response)
+        else:
+            print(start + " Not in Vocabulary")
+                
+
+
+        
 
 
     
