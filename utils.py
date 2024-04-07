@@ -29,7 +29,7 @@ class DarijaBPETokenizer:
         patterns = defaultdict(int)
         for word, freq in self.train_vocab.items():
             sent = word.split()
-            for i in range(len(sent) - 1):
+            for i in range(1,len(sent) - 2):
                 patterns[(sent[i], sent[i+1])] += freq
             # print("".join(sentence).count(pattern))
         try:
@@ -99,9 +99,10 @@ class DarijaBPETokenizer:
     def load_vocab(self, f_path):
         self.vocab = set()
         with open(f_path, "r", encoding="utf-8") as f:
-            tkn = f.readline()
-            tkn.replace("\n", "")
-            self.vocab.add(tkn)
+            tkns = f.readlines()
+            for tkn in tkns:
+                tkn = tkn.replace("\n", "")
+                self.vocab.add(tkn)
 
 
 
@@ -179,7 +180,9 @@ class NgramModel:
         if start in self.vocab.keys():
             while "<EOS" not in current:
                 current_idx = self.vocab[current]
-                next_idx = np.argmax(self.model[current_idx])
+                # adding some randomness for more intersting results
+                prob = self.model[current_idx] / np.sum(self.model[current_idx])
+                next_idx = np.random.choice(np.arange(self.vocab_len), size=1, p=prob)[0]
                 next_tkn = self.inverse_vocab[next_idx]
                 response += next_tkn
                 current = next_tkn
